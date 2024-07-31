@@ -9,16 +9,11 @@ import sqladmin
 from fastapi import exceptions as fastapi_exceptions
 from idempotency_header_middleware import middleware as idempotency_middleware
 from idempotency_header_middleware.backends import base
-from opentelemetry.instrumentation import fastapi as ot_fastapi
-from opentelemetry.instrumentation import logging as ot_logging
-from opentelemetry.instrumentation import redis as ot_redis
-from opentelemetry.instrumentation import sqlalchemy as ot_sqlalchemy
 from sqlalchemy.ext.asyncio import AsyncEngine
 from starlette import types
 
 from fastapi_app.exception_handlers import exceptions, registry
 from fastapi_app.logging import middleware as logging_middleware
-from fastapi_app.telemetry import telemetry
 
 __all__ = ("create",)
 dotenv.load_dotenv()
@@ -105,6 +100,13 @@ def create(
             admin_app.add_view(view)
 
     if telemetry_enable:
+        from opentelemetry.instrumentation import fastapi as ot_fastapi
+        from opentelemetry.instrumentation import logging as ot_logging
+        from opentelemetry.instrumentation import redis as ot_redis
+        from opentelemetry.instrumentation import sqlalchemy as ot_sqlalchemy
+
+        from fastapi_app.telemetry import telemetry
+
         title = f"{app.title}_{env_title}" if env_title else app.title
         telemetry.init_tracer(service_name=title, timeout=telemetry_traces_timeout, endpoint=telemetry_traces_endpoint)
         ot_fastapi.FastAPIInstrumentor.instrument_app(app)
