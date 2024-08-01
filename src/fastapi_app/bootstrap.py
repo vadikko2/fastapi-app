@@ -7,6 +7,7 @@ import fastapi
 import fastapi_key_auth
 import sqladmin
 from fastapi import exceptions as fastapi_exceptions
+from fastapi.middleware import cors
 from idempotency_header_middleware import middleware as idempotency_middleware
 from idempotency_header_middleware.backends import base
 from sqlalchemy.ext.asyncio import AsyncEngine
@@ -46,6 +47,11 @@ def create(
     telemetry_traces_timeout: int = 10,
     telemetry_db_engine: AsyncEngine | None = None,
     exception_handlers: typing.Iterable[ExceptionHandlerType] | None = None,
+    cors_enable: bool = False,
+    cors_allow_origins: typing.List[typing.Text] | None = None,
+    cors_allow_methods: typing.List[typing.Text] | None = None,
+    cors_allow_headers: typing.List[typing.Text] | None = None,
+    cors_allow_credentials: bool = True,
     **kwargs,
 ) -> fastapi.FastAPI:
     global_dependencies = global_dependencies or []
@@ -93,6 +99,14 @@ def create(
         )
 
     app.middleware("http")(logging_middleware.LoggingMiddleware())
+    if cors_enable:
+        app.add_middleware(
+            cors.CORSMiddleware,
+            allow_origins=cors_allow_origins or ["*"],
+            allow_credentials=cors_allow_credentials,
+            allow_methods=cors_allow_methods or ["*"],
+            allow_headers=cors_allow_headers or ["*"],
+        )
 
     if admin_factory:
         admin_app = admin_factory(app)
