@@ -1,10 +1,6 @@
 import asyncio
 import typing
 
-from opentelemetry.instrumentation import httpx as ot_httpx
-from opentelemetry.instrumentation import logging as ot_logging
-from opentelemetry.instrumentation import redis as ot_redis
-from opentelemetry.instrumentation import sqlalchemy as ot_sqlalchemy
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from fastapi_app.kafka import consumer, dependencies
@@ -26,10 +22,17 @@ def create(
     telemetry_traces_endpoint: str = "http://localhost:4318/v1/traces",
     telemetry_traces_timeout: int = 10,
     telemetry_db_engine: AsyncEngine | None = None,
+    sentry_enable: bool = False,
+    sentry_dsn: str | None = None,
 ) -> consumer.KafkaConsumer:
     loop = asyncio.get_event_loop()
     asyncio.set_event_loop(loop)
     if telemetry_enable:
+        from opentelemetry.instrumentation import httpx as ot_httpx
+        from opentelemetry.instrumentation import logging as ot_logging
+        from opentelemetry.instrumentation import redis as ot_redis
+        from opentelemetry.instrumentation import sqlalchemy as ot_sqlalchemy
+
         telemetry.init_tracer(
             service_name=f"{app_title}_{env_title}",
             timeout=telemetry_traces_timeout,
@@ -40,6 +43,11 @@ def create(
         if telemetry_db_engine:
             ot_sqlalchemy.SQLAlchemyInstrumentor().instrument(engine=telemetry_db_engine.sync_engine)
         ot_logging.LoggingInstrumentor().instrument()
+    if sentry_enable:
+        import sentry_sdk
+
+        sentry_sdk.init(dsn=sentry_dsn)
+
     return consumer.KafkaConsumer(
         dependencies.kafka_consumer_factory(
             topics=topics,

@@ -15,6 +15,7 @@ from starlette import types
 
 from fastapi_app.exception_handlers import exceptions, registry
 from fastapi_app.logging import middleware as logging_middleware
+from fastapi_app.telemetry import telemetry
 
 __all__ = ("create",)
 dotenv.load_dotenv()
@@ -52,6 +53,8 @@ def create(
     cors_allow_methods: typing.List[typing.Text] | None = None,
     cors_allow_headers: typing.List[typing.Text] | None = None,
     cors_allow_credentials: bool = True,
+    sentry_enable: bool = False,
+    sentry_dsn: str | None = None,
     **kwargs,
 ) -> fastapi.FastAPI:
     global_dependencies = global_dependencies or []
@@ -119,8 +122,6 @@ def create(
         from opentelemetry.instrumentation import redis as ot_redis
         from opentelemetry.instrumentation import sqlalchemy as ot_sqlalchemy
 
-        from fastapi_app.telemetry import telemetry
-
         title = f"{app.title}_{env_title}" if env_title else app.title
         telemetry.init_tracer(service_name=title, timeout=telemetry_traces_timeout, endpoint=telemetry_traces_endpoint)
         ot_fastapi.FastAPIInstrumentor.instrument_app(app)
@@ -128,5 +129,10 @@ def create(
         if telemetry_db_engine:
             ot_sqlalchemy.SQLAlchemyInstrumentor().instrument(engine=telemetry_db_engine.sync_engine)
         ot_logging.LoggingInstrumentor().instrument()
+
+    if sentry_enable:
+        import sentry_sdk
+
+        sentry_sdk.init(dsn=sentry_dsn)
 
     return app
