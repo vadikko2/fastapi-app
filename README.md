@@ -55,6 +55,8 @@ if __name__ == "__main__":
 | telemetry_traces_timeout  | `int`                                                                                                                      | Таймаут для трассировки телеметрии.                                                                                   |
 | telemetry_db_engine       | `sqlalchemy.ext.asyncio.AsyncEngine`                                                                                       | Сбор телеметрии с SQLAlchemy engine.                                                                                  |
 | exception_handlers        | `Iterable[ExceptionHandlerType]`                                                                                           | Набор обработчиков исключений.                                                                                        |
+| sentry_enable             | `bool`                                                                                                                     | Включить поддержку sentry.                                                                                            |
+| sentry_dsn                | `str`                                                                                                                      | Sentry DSN куда будут отправляться события.                                                                           |
 | **kwargs                  |                                                                                                                            | Дополнительные аргументы.                                                                                             |
 
 ## Ключи идемпотентности:
@@ -252,7 +254,7 @@ if __name__ == "__main__":
 
 ## Kafka клиент
 
-Чтобы сгенерировать клиента Kafka - воспользуйтесь `fastapi_app.kafka.create(...)`:
+Чтобы сгенерировать клиента Kafka, воспользуйтесь `fastapi_app.kafka.create(...)`:
 
 ```python
 from fastapi_app import kafka
@@ -274,19 +276,58 @@ app = kafka.create(
 
 ### Список параметров `fastapi_app.kafka.create`
 
-| Аргумент                  | Тип                                  | Описание                                                                                                       |
-|---------------------------|--------------------------------------|----------------------------------------------------------------------------------------------------------------|
-| app_title                 | `str`                                | Название приложения                                                                                            |
+| Аргумент                  | Тип                                  | Описание                                                                                                        |
+|---------------------------|--------------------------------------|-----------------------------------------------------------------------------------------------------------------|
+| app_title                 | `str`                                | Название приложения                                                                                             |
 | env_title                 | `str`                                | Название окружения (например: `local`, `dev`, `prod`...). Используется для генерации имен сервисов в телеметрии |
-| dsn                       | `str`                                | Хост:порт на подключение к Kafka                                                                               |
-| security_protocol         | `str`                                | Протокол безопасности                                                                                          |
-| sasl_mechanism            | `str`                                | Механизм протокола `SASL`                                                                                      |
-| user                      | `str`                                | Логин пользователя Kafka                                                                                       |
-| password                  | `str`                                | Пароль пользователя kafka                                                                                      |
-| max_wait_ms               | `int`                                | Максимальное время ожидания ответа в мс                                                                        |
-| group_id                  | `str`                                | ID группы                                                                                                      |
-| topics                    | `str`                                | Префикс читаемых топиков                                                                                       |
-| telemetry_enable          | `bool`                               | Включена ли телеметрия.                                                                                        |
-| telemetry_traces_endpoint | `str`                                | Конечная точка для трассировки телеметрии.                                                                     |
-| telemetry_traces_timeout  | `int`                                | Таймаут для трассировки телеметрии.                                                                            |
-| telemetry_db_engine       | `sqlalchemy.ext.asyncio.AsyncEngine` | Сбор телеметрии с SQLAlchemy engine.                                                                           |
+| dsn                       | `str`                                | Хост:порт на подключение к Kafka                                                                                |
+| security_protocol         | `str`                                | Протокол безопасности                                                                                           |
+| sasl_mechanism            | `str`                                | Механизм протокола `SASL`                                                                                       |
+| user                      | `str`                                | Логин пользователя Kafka                                                                                        |
+| password                  | `str`                                | Пароль пользователя kafka                                                                                       |
+| max_wait_ms               | `int`                                | Максимальное время ожидания ответа в мс                                                                         |
+| group_id                  | `str`                                | ID группы                                                                                                       |
+| topics                    | `str`                                | Префикс читаемых топиков                                                                                        |
+| telemetry_enable          | `bool`                               | Включена ли телеметрия.                                                                                         |
+| telemetry_traces_endpoint | `str`                                | Конечная точка для трассировки телеметрии.                                                                      |
+| telemetry_traces_timeout  | `int`                                | Таймаут для трассировки телеметрии.                                                                             |
+| telemetry_db_engine       | `sqlalchemy.ext.asyncio.AsyncEngine` | Сбор телеметрии с SQLAlchemy engine.                                                                            |
+| sentry_enable             | `bool`                               | Включить поддержку sentry.                                                                                      |
+| sentry_dsn                | `str`                                | Sentry DSN куда будут отправляться события.                                                                     |
+
+## Sentry:
+
+Для интеграции с `sentry` необходимо указать DSN, куда будут отправляться события.
+
+
+### Пример для FastAPI
+```python
+import fastapi_app
+import fastapi
+import uvicorn
+
+
+app: fastapi.FastAPI = fastapi_app.create(
+    title="App с телеметрией",
+    env_title="dev",  # название окружения, для распознавания трассировок между разными окружениями приложения.
+    sentry_enable=True,  # Активация sentry.
+    sentry_dsn="https://examplePublicKey@o0.ingest.sentry.io/0",  # DSN куда будут отправляться события.
+)
+
+if __name__ == "__main__":
+    uvicorn.run(app)
+```
+
+### Пример для Kafka consumer
+```python
+from fastapi_app import kafka
+
+
+app: kafka.KafkaConsumer = kafka.create(
+    ...,  # Прочие параметры настроек для Kafka consumer
+    sentry_enable=True,  # Активация sentry.
+    sentry_dsn="https://examplePublicKey@o0.ingest.sentry.io/0",  # DSN куда будут отправляться события.
+)
+
+app.consume(on_message=on_update_message)
+```
