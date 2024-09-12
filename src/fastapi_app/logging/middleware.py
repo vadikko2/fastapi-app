@@ -125,7 +125,7 @@ class LoggingMiddleware:
             request_size=int(request_headers.get("content-length", 0)),
             request_content_type=request_headers.get("content-type", EMPTY_VALUE),
             request_headers=request_headers,
-            request_body=request_body,
+            request_body=request_body if isinstance(request_body, dict) else EMPTY_VALUE,
             request_direction="in",
             request_x_api_key=request_headers.get("x-api-key"),
             # Response side

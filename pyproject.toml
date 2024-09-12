@@ -24,7 +24,7 @@ dependencies = [
 ]
 description = ""
 name = "fastapi_app"
-version = "24.33.01"
+version = "0.0.1"
 
 [project.optional-dependencies]
 git = [
