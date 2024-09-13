@@ -15,7 +15,6 @@ from starlette import types
 
 from fastapi_app.exception_handlers import exceptions, registry
 from fastapi_app.logging import middleware as logging_middleware
-from fastapi_app.telemetry import telemetry
 
 __all__ = ("create",)
 dotenv.load_dotenv()
@@ -121,6 +120,8 @@ def create(
         from opentelemetry.instrumentation import logging as ot_logging
         from opentelemetry.instrumentation import redis as ot_redis
         from opentelemetry.instrumentation import sqlalchemy as ot_sqlalchemy
+
+        from fastapi_app.telemetry import telemetry
 
         title = f"{app.title}_{env_title}" if env_title else app.title
         telemetry.init_tracer(service_name=title, timeout=telemetry_traces_timeout, endpoint=telemetry_traces_endpoint)
