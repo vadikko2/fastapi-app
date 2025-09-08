@@ -24,7 +24,6 @@ PASS_ROUTES = [
 ]
 ADMIN_ROUTE = "/admin"
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -42,7 +41,11 @@ class ReceiveProxy:
         # First call will be for getting request body => returns cached result
         if self._is_first_call:
             self._is_first_call = False
-            return {"type": "http.request", "body": self.cached_body, "more_body": False}
+            return {
+                "type": "http.request",
+                "body": self.cached_body,
+                "more_body": False,
+            }
 
         return await self.receive()
 
@@ -66,7 +69,10 @@ class LoggingMiddleware:
     async def get_request_body(self, request: requests.Request) -> typing.Dict:
         body = await request.body()
         body = self.try_to_loads(body)
-        request._receive = ReceiveProxy(receive=request.receive, cached_body=body)
+        request._receive = ReceiveProxy(  # pyright: ignore[reportArgumentType]
+            receive=request.receive,
+            cached_body=body,
+        )
         return body
 
     def try_to_loads(self, data) -> typing.Dict | typing.Any:
@@ -75,12 +81,17 @@ class LoggingMiddleware:
         except orjson.JSONDecodeError:
             return data
 
-    async def __call__(self, request: requests.Request, call_next: RequestResponseEndpoint, *args, **kwargs):
+    async def __call__(
+        self,
+        request: requests.Request,
+        call_next: RequestResponseEndpoint,
+        *args,
+        **kwargs,
+    ):
         # logger.debug(f"Started Middleware: {__name__}")
         start_time = time.time()
         exception_object = None
         request_body = await self.get_request_body(request)
-        server: typing.Tuple = request.get("server", ("localhost", PORT))
         request_headers: typing.Dict = dict(request.headers.items())
 
         # Response Side
@@ -117,24 +128,23 @@ class LoggingMiddleware:
         # Initializing of json fields
         request_json_fields = RequestJsonLogSchema(
             # Request side
-            request_uri=str(request.url),
-            request_referer=request_headers.get("referer", EMPTY_VALUE),
-            request_method=request.method,
-            request_path=request.url.path,
-            request_host=f"{server[0]}:{server[1]}",
-            request_size=int(request_headers.get("content-length", 0)),
-            request_content_type=request_headers.get("content-type", EMPTY_VALUE),
-            request_headers=request_headers,
-            request_body=request_body if isinstance(request_body, dict) else EMPTY_VALUE,
-            request_direction="in",
-            request_x_api_key=request_headers.get("x-api-key"),
+            url_path=str(request.url.path),
+            url_query=str(request.url.query),
+            http_request_referer=request_headers.get("referer", EMPTY_VALUE),
+            http_request_method=request.method,
+            http_request_mime_type=request_headers.get("content-type", EMPTY_VALUE),
+            http_request_idempotency_key=request_headers.get(
+                "idempotency-key",
+                EMPTY_VALUE,
+            ),
+            http_request_body_content=request_body,
+            http_request_body_bytes=int(request_headers.get("content-length", 0)),
             # Response side
-            response_status_code=response.status_code,
-            response_size=int(response_headers.get("content-length", 0)),
-            response_headers=response_headers,
-            response_body=self.try_to_loads(response_body),
+            http_response_status_code=response.status_code,
+            http_response_body_bytes=int(response_headers.get("content-length", 0)),
+            http_response_body_content=self.try_to_loads(response_body),
             duration=duration,
-        ).model_dump(mode="json")
+        ).model_dump(mode="json", by_alias=True)
 
         message = (
             f'{"Error" if exception_object else "Answer"} '

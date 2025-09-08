@@ -1,4 +1,5 @@
 import asyncio
+import os
 
 import fastapi
 import httpx
@@ -76,3 +77,20 @@ def api_with_auth() -> httpx.AsyncClient:
 @pytest.fixture
 def api_with_idempotency() -> httpx.AsyncClient:
     return get_test_client(idempotency_mock_api.mock_app)
+
+
+@pytest.fixture
+def api_with_sentry() -> httpx.AsyncClient:
+    app = fastapi_app.create(
+        title="Test",
+        debug=True,
+        description="Auth test API",
+        sentry_enable=True,
+        sentry_dsn=os.getenv("SENTRY_DSN"),
+    )
+
+    @app.get("/error_route", status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    async def error_route():
+        raise fastapi.HTTPException(status_code=500, detail="Test Error")
+
+    return get_test_client(app)

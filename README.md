@@ -1,3 +1,25 @@
+- [fastapi-app-generator](#fastapi-app-generator)
+  - [Установка](#установка)
+  - [Быстрый старт](#быстрый-старт)
+    - [Список параметров `fastapi_app.create`](#список-параметров-fastapi_appcreate)
+  - [Ключи идемпотентности:](#ключи-идемпотентности)
+  - [Авторизация:](#авторизация)
+    - [Авторизация с генерируемой OpenAPI схемой FastAPI](#авторизация-с-генерируемой-openapi-схемой-fastapi)
+  - [Телеметрия:](#телеметрия)
+  - [Обработчики ошибок:](#обработчики-ошибок)
+  - [Логирование](#логирование)
+    - [Список параметров `fastapi_app.logging.generate_log_config`](#список-параметров-fastapi_applogginggenerate_log_config)
+  - [Kafka клиент](#kafka-клиент)
+    - [Подключение к кластеру с сертификатом](#подключение-к-кластеру-с-сертификатом)
+    - [Список параметров `fastapi_app.kafka.create`](#список-параметров-fastapi_appkafkacreate)
+  - [Sentry:](#sentry)
+  - [Метрики в формате Prometheus](#метрики-в-формате-prometheus)
+    - [Пример для FastAPI](#пример-для-fastapi)
+    - [Пример для Kafka consumer](#пример-для-kafka-consumer)
+  - [Пагинация ответа](#пагинация-ответа)
+    - [Пример пагинации ответа в роуте FastAPI](#пример-пагинации-ответа-в-роуте-fastapi)
+
+
 # fastapi-app-generator
 
 Библиотека для быстрого создания готового к использованию FastAPI приложения с
@@ -31,7 +53,7 @@ if __name__ == "__main__":
 ### Список параметров `fastapi_app.create`
 
 | Аргумент                  | Тип                                                                                                                        | Описание                                                                                                              |
-|---------------------------|----------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------|
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
 | *_                        |                                                                                                                            | Параметры сбора FastAPI приложения ([см. подробнее](https://fastapi.tiangolo.com/reference/fastapi/)).                |
 | env_title                 | `str`                                                                                                                      | Название окружения (например: `local`, `dev`, `prod`...). Используется для генерации имен сервисов в телеметрии       |
 | command_routers           | `Iterable[fastapi.APIRouter]`<br>([см. fastapi.APIRouter](https://fastapi.tiangolo.com/reference/apirouter/?h=apirouter)]) | Роутеры для команд.                                                                                                   |
@@ -60,6 +82,7 @@ if __name__ == "__main__":
 | **kwargs                  |                                                                                                                            | Дополнительные аргументы.                                                                                             |
 
 ## Ключи идемпотентности:
+
 
 ```python
 import fastapi_app
@@ -116,6 +139,40 @@ API_KEY_<username>=<token>
 ```
 
 ![img.png](docs/img.png)
+
+### Авторизация с генерируемой OpenAPI схемой FastAPI
+
+```python
+import fastapi_app
+import fastapi
+import uvicorn
+from fastapi_app import dependencies
+
+
+auth_dependency = fastapi.Depends(
+    dependencies.api_key.ValidateAPIKeyHeader(
+        header_name="x-api-key",
+        api_keys=dependencies.api_key.get_api_keys_from_env(
+            api_auth_key_prefix="API_KEY"
+        ),
+    )
+)
+
+app: fastapi.FastAPI = fastapi_app.create(
+    title="App с авторизацией и openapi схемой",
+    global_dependencies=[auth_dependency],
+)
+
+
+@app.get("hello")
+def abeba():
+    return "hello"
+
+
+if __name__ == "__main__":
+    uvicorn.run(app)
+
+```
 
 ## Телеметрия:
 
@@ -245,12 +302,12 @@ if __name__ == "__main__":
 ```
 ### Список параметров `fastapi_app.logging.generate_log_config`
 
-| Аргумент            | Тип                                                                                                                        | Описание                                                                        |
-|---------------------|----------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------|
-| logging_level       | `str`                                                                                                                      | Уровень логирования: `NOTSET`, `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`. |
-| serialize           | `bool`                                                                                                                     | Сериализация лога в JSON.                                                       |
-| app_name            | `str`                                                                                                                      | Название приложения.                                                            |
-| app_version         | `str`                                                                                                                      | Версия приложения.                                                              |
+| Аргумент      | Тип    | Описание                                                                        |
+| ------------- | ------ | ------------------------------------------------------------------------------- |
+| logging_level | `str`  | Уровень логирования: `NOTSET`, `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`. |
+| serialize     | `bool` | Сериализация лога в JSON.                                                       |
+| app_name      | `str`  | Название приложения.                                                            |
+| app_version   | `str`  | Версия приложения.                                                              |
 
 ## Kafka клиент
 
@@ -269,15 +326,41 @@ app = kafka.create(
     password="",
     max_wait_ms=10,
     group_id="test",
-    topics="topic_",
+    topics=["topic_"],
     telemetry_enable=False,
 )
+```
+
+### Подключение к кластеру с сертификатом
+
+```
+    context = create_ssl_context(cafile="/path/to/ca.crt")
+
+    consumer = bootstrap.create(
+        app_title="Test consumer",
+        env_title="test",
+        dsn=",".join(
+            [
+                "kafka-dev-1:9493",
+                "kafka-dev-2:9493",
+                "kafka-dev-3:9493",
+            ]
+        ),
+        topics=["topic_1"],
+        security_protocol="SASL_SSL",
+        sasl_mechanism="SCRAM-SHA-256",
+        user="test-user",
+        password="test-pwd",
+        max_wait_ms=10 * 1000,
+        group_id="test-connection-group",
+        ssl_context=context,
+    )
 ```
 
 ### Список параметров `fastapi_app.kafka.create`
 
 | Аргумент                  | Тип                                  | Описание                                                                                                        |
-|---------------------------|--------------------------------------|-----------------------------------------------------------------------------------------------------------------|
+| ------------------------- | ------------------------------------ | --------------------------------------------------------------------------------------------------------------- |
 | app_title                 | `str`                                | Название приложения                                                                                             |
 | env_title                 | `str`                                | Название окружения (например: `local`, `dev`, `prod`...). Используется для генерации имен сервисов в телеметрии |
 | dsn                       | `str`                                | Хост:порт на подключение к Kafka                                                                                |
@@ -292,8 +375,9 @@ app = kafka.create(
 | telemetry_traces_endpoint | `str`                                | Конечная точка для трассировки телеметрии.                                                                      |
 | telemetry_traces_timeout  | `int`                                | Таймаут для трассировки телеметрии.                                                                             |
 | telemetry_db_engine       | `sqlalchemy.ext.asyncio.AsyncEngine` | Сбор телеметрии с SQLAlchemy engine.                                                                            |
-| sentry_enable             | `bool`                               | Включить поддержку sentry.                                                                                      |
-| sentry_dsn                | `str`                                | Sentry DSN куда будут отправляться события.                                                                     |
+| sentry_enable             | `bool`                               | DEPRECATED. Использовать `telemetry.sentry:configure_sentry`. Включить поддержку sentry.                        |
+| sentry_dsn                | `str`                                | DEPRECATED. Использовать `telemetry.sentry:configure_sentry`. Sentry DSN куда будут отправляться события.       |
+| ssl_context               | `ssl.SSLContext`                     | SSL контекст                                                                                                    |
 
 ## Sentry:
 
@@ -305,13 +389,16 @@ app = kafka.create(
 import fastapi_app
 import fastapi
 import uvicorn
+from fastapi_app.telemetry import sentry
 
+sentry_enabled = True
+sentry_dsn = "https://examplePublicKey@o0.ingest.sentry.io/0"
+if sentry_enabled:
+    sentry.configure_sentry(sentry_dsn)
 
 app: fastapi.FastAPI = fastapi_app.create(
     title="App с телеметрией",
     env_title="dev",  # название окружения, для распознавания трассировок между разными окружениями приложения.
-    sentry_enable=True,  # Активация sentry.
-    sentry_dsn="https://examplePublicKey@o0.ingest.sentry.io/0",  # DSN куда будут отправляться события.
 )
 
 if __name__ == "__main__":
@@ -321,13 +408,48 @@ if __name__ == "__main__":
 ### Пример для Kafka consumer
 ```python
 from fastapi_app import kafka
+from fastapi_app.telemetry import sentry
 
+sentry_enabled = True
+sentry_dsn = "https://examplePublicKey@o0.ingest.sentry.io/0"
+if sentry_enabled:
+    sentry.configure_sentry(sentry_dsn)
 
 app: kafka.KafkaConsumer = kafka.create(
     ...,  # Прочие параметры настроек для Kafka consumer
-    sentry_enable=True,  # Активация sentry.
-    sentry_dsn="https://examplePublicKey@o0.ingest.sentry.io/0",  # DSN куда будут отправляться события.
 )
 
 app.consume(on_message=on_update_message)
+```
+
+## Пагинация ответа
+
+Для создания пагинации ответов в FastAPI можно воспользоваться классом `fastapi_app.paginator.PaginatedResult`.
+
+### Пример пагинации ответа в роуте FastAPI
+
+```python
+import fastapi_app
+import fastapi
+from fastapi_app import paginator
+
+app = fastapi_app.create(
+    title="Test",
+    debug=True,
+    description="Pagination test API",
+)
+
+
+# Базовая пагинация ответа
+@app.get("/test_paginate", response_model=paginator.PaginatedResult[int])
+async def test_pagination_route(request: fastapi.Request, page: int = 1, limit: int = 25):
+    total = [i for i in range(limit * 10)]
+    offset = limit * (page - 1)
+    return paginator.PaginatedResult[int](
+        current_page=page,
+        total=len(total),
+        data=total[offset:offset + limit],
+        limit=limit,
+        url=str(request.url)
+    )
 ```

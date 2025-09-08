@@ -10,7 +10,7 @@ dependencies = [
   "pydantic==2.*",
   "orjson==3.9.15",
   "decohints==1.0.9",
-  "cryptography==42.0.2",
+  "cryptography>=43.0.0",
   "stackprinter==0.2.12",
   "redis==5.0.3",
   "asgi-idempotency-header==0.2.0",
@@ -24,9 +24,20 @@ dependencies = [
 ]
 description = ""
 name = "fastapi_app"
-version = "0.0.2"
+version = "0.1.0"
 
 [project.optional-dependencies]
+all = [
+  "opentelemetry-instrumentation-fastapi==0.56b0",
+  "opentelemetry-instrumentation-redis==0.56b0",
+  "opentelemetry-instrumentation-sqlalchemy==0.56b0",
+  "opentelemetry-instrumentation-logging==0.56b0",
+  "opentelemetry-instrumentation-httpx==0.56b0",
+  "opentelemetry-instrumentation-aiokafka==0.56b0",
+  "opentelemetry-exporter-otlp-proto-http==1.35.0",
+  "aiokafka==0.10.0",
+  "sentry-sdk[fastapi]==2.12.0"
+]
 git = [
   "pre-commit==3.8.0 "
 ]
@@ -39,16 +50,21 @@ lint = [
   "black"
 ]
 otlp = [
-  "opentelemetry-instrumentation-fastapi==0.45b0",
-  "opentelemetry-instrumentation-redis==0.45b0",
-  "opentelemetry-instrumentation-sqlalchemy==0.45b0",
-  "opentelemetry-instrumentation-logging==0.45b0",
-  "opentelemetry-instrumentation-httpx==0.45b0",
-  "opentelemetry-exporter-otlp-proto-http==1.24.0"
+  "opentelemetry-instrumentation-fastapi==0.56b0",
+  "opentelemetry-instrumentation-redis==0.56b0",
+  "opentelemetry-instrumentation-sqlalchemy==0.56b0",
+  "opentelemetry-instrumentation-logging==0.56b0",
+  "opentelemetry-instrumentation-httpx==0.56b0",
+  "opentelemetry-instrumentation-aiokafka==0.56b0",
+  "opentelemetry-exporter-otlp-proto-http==1.35.0"
+]
+sentry = [
+  "sentry-sdk[fastapi]==2.12.0"
 ]
 tests = [
   "pytest~=7.4.2",
-  "pytest-asyncio~=0.21.1"
+  "pytest-asyncio~=0.21.1",
+  "httpx==0.27.0"
 ]
 
 [tool.pytest.ini_options]

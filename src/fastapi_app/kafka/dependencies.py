@@ -1,4 +1,5 @@
 import asyncio
+import ssl
 import typing
 
 import aiokafka
@@ -16,6 +17,7 @@ def kafka_consumer_factory(
     fetch_max_wait_ms: int,
     group_id: typing.Text,
     loop: asyncio.AbstractEventLoop,
+    ssl_context: ssl.SSLContext | None = None,
 ) -> aiokafka.AIOKafkaConsumer:
     return aiokafka.AIOKafkaConsumer(
         *topics,
@@ -29,4 +31,5 @@ def kafka_consumer_factory(
         group_id=group_id,
         enable_auto_commit=False,
         loop=loop,
+        ssl_context=ssl_context,
     )

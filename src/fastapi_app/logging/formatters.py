@@ -33,7 +33,12 @@ class JSONLogFormatter(logging.Formatter):
         return json.dumps(log_object, ensure_ascii=False)
 
     def _format_log_object(self, record: logging.LogRecord) -> dict:
-        now = datetime.datetime.fromtimestamp(record.created).astimezone().replace(microsecond=0).isoformat()
+        now = (
+            datetime.datetime.fromtimestamp(record.created)
+            .astimezone()
+            .replace(microsecond=0)
+            .isoformat()
+        )
         message = record.getMessage()
         duration = record.duration if hasattr(record, "duration") else record.msecs
         span_id = record.otelSpanID if hasattr(record, "otelSpanID") else None
@@ -48,16 +53,22 @@ class JSONLogFormatter(logging.Formatter):
             duration=duration,
             app_name=self.app_name,
             app_version=self.app_version,
+            log_origin_function=record.funcName,
+            log_origin_file_line=record.lineno,
+            log_origin_file_name=record.filename,
+            log_file_path=record.pathname,
         )
 
         if hasattr(record, "props"):
             json_log_fields.props = record.props
 
         if record.exc_info:
-            json_log_fields.exceptions = traceback.format_exception(*record.exc_info)
+            json_log_fields.labels = dict(
+                exceptions=traceback.format_exception(*record.exc_info),
+            )
 
         elif record.exc_text:
-            json_log_fields.exceptions = record.exc_text
+            json_log_fields.labels = dict(exceptions=record.exc_text)
 
         if span_id and trace_id:
             json_log_fields.span_id = span_id

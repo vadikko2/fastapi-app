@@ -2,21 +2,14 @@ import typing
 
 import pydantic
 
-__all__ = (
-    "ResponseMulti",
-    "Response",
-)
+__all__ = ("Response",)
 
 R = typing.TypeVar("R", bound=pydantic.BaseModel)
-
-
-class ResponseMulti(pydantic.BaseModel, typing.Generic[R]):
-    """Generic response model that consist multiple results."""
-
-    result: typing.List[R]
 
 
 class Response(pydantic.BaseModel, typing.Generic[R]):
     """Generic response model that consist only one result."""
 
-    result: R
+    error_code: int | None = None
+    error_message: typing.Text | None = None
+    result: R | None = None
