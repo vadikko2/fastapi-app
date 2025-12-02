@@ -6,7 +6,7 @@ import typing
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from fastapi_app.kafka import consumer, dependencies
-from fastapi_app.telemetry import sentry, telemetry
+from fastapi_app.telemetry import sentry
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +38,8 @@ def create(
         from opentelemetry.instrumentation import logging as ot_logging
         from opentelemetry.instrumentation import redis as ot_redis
         from opentelemetry.instrumentation import sqlalchemy as ot_sqlalchemy
+
+        from fastapi_app.telemetry import telemetry
 
         telemetry.init_tracer(
             service_name=f"{app_title}_{env_title}",
