@@ -81,6 +81,25 @@ class LoggingMiddleware:
         except orjson.JSONDecodeError:
             return data
 
+    @staticmethod
+    def _is_binary_content_type(content_type: str) -> bool:
+        """Check if content type is binary (image, video, audio, etc.)"""
+        if not content_type:
+            return False
+
+        binary_types = [
+            "image/",
+            "video/",
+            "audio/",
+            "application/octet-stream",
+            "application/pdf",
+            "application/zip",
+            "application/x-tar",
+            "application/gzip",
+        ]
+
+        return any(content_type.startswith(binary_type) for binary_type in binary_types)
+
     async def __call__(
         self,
         request: requests.Request,
@@ -106,15 +125,27 @@ class LoggingMiddleware:
         else:
             response_headers = dict(response.headers.items())
             response_body = b""
+            original_media_type = response.headers.get("content-type", "")
 
             async for chunk in response.body_iterator:
                 response_body += chunk
+
+            # Preserve original media type, don't force application/json
+            media_type = (
+                original_media_type.split(";")[0] if original_media_type else None
+            )
+            if not media_type:
+                # Try to get from response if available
+                if hasattr(response, "media_type") and response.media_type:
+                    media_type = response.media_type
+                else:
+                    media_type = "application/json"
 
             response = responses.Response(
                 content=response_body,
                 status_code=response.status_code,
                 headers=dict(response.headers),
-                media_type="application/json",
+                media_type=media_type,
             )
 
         # pass /openapi.json /docs /admin
@@ -124,6 +155,18 @@ class LoggingMiddleware:
             return response
 
         duration: int = math.ceil((time.time() - start_time) * 1000)
+
+        # Check if response is binary (image, video, etc.)
+        response_media_type = (
+            response.headers.get("content-type", "").split(";")[0].lower()
+        )
+        is_binary_response = self._is_binary_content_type(response_media_type)
+
+        # For binary responses, don't try to parse as JSON
+        if is_binary_response:
+            response_body_content = f"<binary data: {response_media_type}>"
+        else:
+            response_body_content = self.try_to_loads(response_body)
 
         # Initializing of json fields
         request_json_fields = RequestJsonLogSchema(
@@ -142,7 +185,7 @@ class LoggingMiddleware:
             # Response side
             http_response_status_code=response.status_code,
             http_response_body_bytes=int(response_headers.get("content-length", 0)),
-            http_response_body_content=self.try_to_loads(response_body),
+            http_response_body_content=response_body_content,
             duration=duration,
         ).model_dump(mode="json", by_alias=True)
 
