@@ -74,22 +74,47 @@ class LoggingMiddleware:
         if self._is_binary_content_type(request_content_type):
             # For binary requests (multipart/form-data, images, etc.), don't read body
             # Return placeholder instead to avoid UnicodeDecodeError
+            # Don't create ReceiveProxy since we're not reading the body
             return f"<binary data: {request_content_type.split(';')[0]}>"
 
         # For non-binary requests, read and parse body as usual
-        body = await request.body()
-        body = self.try_to_loads(body)
+        body_bytes = await request.body()
+        body = self.try_to_loads(body_bytes)
+
+        # Ensure body is never bytes - convert to string if needed
+        if isinstance(body, bytes):
+            body = "<non-json binary data>"
+
+        # Create ReceiveProxy with original bytes for request replay
         request._receive = ReceiveProxy(  # pyright: ignore[reportArgumentType]
             receive=request.receive,
-            cached_body=body if isinstance(body, bytes) else orjson.dumps(body),
+            cached_body=body_bytes,
         )
         return body
 
-    def try_to_loads(self, data) -> typing.Dict | typing.Any:
+    def try_to_loads(self, data) -> typing.Dict | str:
+        """Try to parse JSON, return string if not JSON or if data is bytes."""
         try:
-            return orjson.loads(data)
-        except orjson.JSONDecodeError:
+            # If data is bytes, try to decode as JSON
+            if isinstance(data, bytes):
+                try:
+                    return orjson.loads(data)
+                except (orjson.JSONDecodeError, UnicodeDecodeError):
+                    # If it's not valid JSON and contains non-UTF-8 bytes, return placeholder
+                    return "<non-json binary data>"
+            # If data is already a string or dict, try to parse if string
+            if isinstance(data, str):
+                try:
+                    return orjson.loads(data.encode())
+                except (orjson.JSONDecodeError, UnicodeDecodeError):
+                    return data
+            # If it's already a dict or other JSON-serializable type, return as is
             return data
+        except Exception:
+            # Fallback: return string representation or placeholder
+            if isinstance(data, bytes):
+                return "<non-json binary data>"
+            return str(data) if data else ""
 
     @staticmethod
     def _is_binary_content_type(content_type: str) -> bool:
@@ -183,6 +208,11 @@ class LoggingMiddleware:
             response_body_content = f"<binary data: {response_media_type}>"
         else:
             response_body_content = self.try_to_loads(response_body)
+
+        # Ensure request_body is never bytes - convert to string if needed
+        # This is a safety check in case bytes somehow got through
+        if isinstance(request_body, bytes):
+            request_body = "<non-json binary data>"
 
         # Initializing of json fields
         request_json_fields = RequestJsonLogSchema(
