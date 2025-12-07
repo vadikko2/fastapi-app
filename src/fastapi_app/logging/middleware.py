@@ -66,12 +66,22 @@ class LoggingMiddleware:
             return f"{protocol.upper()}/{http_version}"
         return EMPTY_VALUE
 
-    async def get_request_body(self, request: requests.Request) -> typing.Dict:
+    async def get_request_body(self, request: requests.Request) -> typing.Dict | str:
+        """Get request body, handling binary content types safely."""
+        request_content_type = request.headers.get("content-type", "")
+
+        # Check if request contains binary data that shouldn't be logged
+        if self._is_binary_content_type(request_content_type):
+            # For binary requests (multipart/form-data, images, etc.), don't read body
+            # Return placeholder instead to avoid UnicodeDecodeError
+            return f"<binary data: {request_content_type.split(';')[0]}>"
+
+        # For non-binary requests, read and parse body as usual
         body = await request.body()
         body = self.try_to_loads(body)
         request._receive = ReceiveProxy(  # pyright: ignore[reportArgumentType]
             receive=request.receive,
-            cached_body=body,
+            cached_body=body if isinstance(body, bytes) else orjson.dumps(body),
         )
         return body
 
@@ -83,14 +93,18 @@ class LoggingMiddleware:
 
     @staticmethod
     def _is_binary_content_type(content_type: str) -> bool:
-        """Check if content type is binary (image, video, audio, etc.)"""
+        """Check if content type is binary (image, video, audio, multipart, etc.)"""
         if not content_type:
             return False
+
+        # Normalize content type (remove parameters like charset, boundary, etc.)
+        content_type_lower = content_type.lower().split(";")[0].strip()
 
         binary_types = [
             "image/",
             "video/",
             "audio/",
+            "multipart/",
             "application/octet-stream",
             "application/pdf",
             "application/zip",
@@ -98,7 +112,9 @@ class LoggingMiddleware:
             "application/gzip",
         ]
 
-        return any(content_type.startswith(binary_type) for binary_type in binary_types)
+        return any(
+            content_type_lower.startswith(binary_type) for binary_type in binary_types
+        )
 
     async def __call__(
         self,

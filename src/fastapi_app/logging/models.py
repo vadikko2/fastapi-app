@@ -63,7 +63,7 @@ class RequestJsonLogSchema(pydantic.BaseModel):
     http_request_idempotency_key: typing.Text = pydantic.Field(
         alias="http.request.idempotency_key",
     )
-    http_request_body_content: typing.Union[typing.Dict, bytes] = pydantic.Field(
+    http_request_body_content: typing.Union[typing.Dict, bytes, str] = pydantic.Field(
         alias="http.request.body.content",
     )
     http_request_body_bytes: pydantic.NonNegativeInt = pydantic.Field(
